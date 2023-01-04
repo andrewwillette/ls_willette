@@ -9,12 +9,21 @@ fn main() {
     if args.len() > 1 {
         let filepath_arg = &args[1];
         if filepath_arg != "" {
-            files = get_directory_files(Path::new(filepath_arg));
+            files = match get_directory_files(Path::new(filepath_arg)) {
+                Ok(files) => files,
+                Err(_) => panic!("Error getting directory files"),
+            };
         } else {
-            files = get_directory_files(Path::new("."));
+            files = match get_directory_files(Path::new(".")) {
+                Ok(files) => files,
+                Err(_) => panic!("Error getting directory files"),
+            };
         }
     } else {
-        files = get_directory_files(Path::new("."));
+        files = match get_directory_files(Path::new(".")) {
+            Ok(files) => files,
+            Err(_) => panic!("Error getting directory files"),
+        };
     }
     println!("{:?}", files);
 }
@@ -27,14 +36,26 @@ struct LsFile {
     size: u64,
 }
 
-fn get_directory_files(filepath: &Path) -> HashSet<LsFile> {
+#[derive(Debug)]
+pub enum WilletteLsError {
+    ProvidedDirectoryInvalid,
+}
+
+fn get_directory_files(filepath: &Path) -> Result<HashSet<LsFile>, WilletteLsError> {
     let mut files: HashSet<LsFile> = Default::default();
     let readdir: fs::ReadDir = match fs::read_dir(filepath.to_str().unwrap()) {
         Ok(readdir) => readdir,
+        // TODO: handle if provided argument is a file
         Err(error) => panic!("Invalid directory provided. {}", error),
     };
     for file in readdir {
-        let filepath: String = file.unwrap().file_name().to_str().unwrap().to_string();
+        let filepath: String = match file {
+            Ok(file) => match file.file_name().to_str() {
+                None => panic!("Invalid file name."),
+                Some(filename) => filename.to_string(),
+            },
+            Err(err) => panic!("Invalid file provided. {}", err),
+        };
         let lsfile: LsFile = LsFile {
             filename: filepath,
             privileges: "".to_string(),
@@ -43,7 +64,7 @@ fn get_directory_files(filepath: &Path) -> HashSet<LsFile> {
         };
         files.insert(lsfile);
     }
-    return files;
+    return Ok(files);
 }
 
 #[cfg(test)]
@@ -52,7 +73,7 @@ mod tests {
 
     #[test]
     fn test_get_directory_files() {
-        let set = HashSet::from([
+        let expected_filenames: HashSet<&str> = HashSet::from([
             "Cargo.toml",
             "src",
             ".git",
@@ -60,9 +81,12 @@ mod tests {
             "target",
             "Cargo.lock",
         ]);
-        let result = get_directory_files(Path::new("."));
+        let result = match get_directory_files(Path::new(".")) {
+            Ok(files) => files,
+            Err(_) => panic!("Error getting directory files"),
+        };
         assert_eq!(result.len(), 6);
-        for filename in set {
+        for filename in expected_filenames {
             assert_eq!(
                 true,
                 result.iter().any(|lsfile| lsfile.filename == filename)
