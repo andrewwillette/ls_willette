@@ -8,17 +8,11 @@ fn main() {
     let files: HashSet<LsFile>;
     if args.len() > 1 {
         let filepath_arg = &args[1];
-        if filepath_arg != "" {
-            files = match get_directory_files(Path::new(filepath_arg)) {
-                Ok(files) => files,
-                Err(_) => panic!("Error getting directory files"),
-            };
-        } else {
-            files = match get_directory_files(Path::new(".")) {
-                Ok(files) => files,
-                Err(_) => panic!("Error getting directory files"),
-            };
-        }
+        // TODO: handle if provided argument is a file / directory
+        files = match get_directory_files(Path::new(filepath_arg)) {
+            Ok(files) => files,
+            Err(_) => panic!("Error getting directory files"),
+        };
     } else {
         files = match get_directory_files(Path::new(".")) {
             Ok(files) => files,
@@ -45,7 +39,6 @@ fn get_directory_files(filepath: &Path) -> Result<HashSet<LsFile>, WilletteLsErr
     let mut files: HashSet<LsFile> = Default::default();
     let readdir: fs::ReadDir = match fs::read_dir(filepath.to_str().unwrap()) {
         Ok(readdir) => readdir,
-        // TODO: handle if provided argument is a file
         Err(error) => panic!("Invalid directory provided. {}", error),
     };
     for file in readdir {
