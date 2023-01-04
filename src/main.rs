@@ -5,24 +5,43 @@ use std::path::Path;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-
-    let filepath_arg = &args[1];
-    println!("filepath_arg: {}", filepath_arg);
-    let p = Path::new(filepath_arg);
-    let pb = p.to_str().unwrap();
-    println!("Path: {}", pb);
-    if filepath_arg != "" {
-        get_directory_files(Path::new(filepath_arg));
+    let files: HashSet<LsFile>;
+    if args.len() > 1 {
+        let filepath_arg = &args[1];
+        if filepath_arg != "" {
+            files = get_directory_files(Path::new(filepath_arg));
+        } else {
+            files = get_directory_files(Path::new("."));
+        }
     } else {
-        get_directory_files(Path::new("."));
+        files = get_directory_files(Path::new("."));
     }
+    println!("{:?}", files);
 }
 
-fn get_directory_files(filepath: &Path) -> HashSet<String> {
-    let mut files: HashSet<String> = Default::default();
-    for file in fs::read_dir(filepath.to_str().unwrap()).unwrap() {
+#[derive(PartialEq, Eq, Hash, Debug)]
+struct LsFile {
+    filename: String,
+    privileges: String,
+    last_edit_time: String,
+    size: u64,
+}
+
+fn get_directory_files(filepath: &Path) -> HashSet<LsFile> {
+    let mut files: HashSet<LsFile> = Default::default();
+    let readdir: fs::ReadDir = match fs::read_dir(filepath.to_str().unwrap()) {
+        Ok(readdir) => readdir,
+        Err(error) => panic!("Invalid directory provided. {}", error),
+    };
+    for file in readdir {
         let filepath: String = file.unwrap().file_name().to_str().unwrap().to_string();
-        files.insert(filepath.clone());
+        let lsfile: LsFile = LsFile {
+            filename: filepath,
+            privileges: "".to_string(),
+            last_edit_time: "".to_string(),
+            size: 0,
+        };
+        files.insert(lsfile);
     }
     return files;
 }
@@ -44,7 +63,10 @@ mod tests {
         let result = get_directory_files(Path::new("."));
         assert_eq!(result.len(), 6);
         for filename in set {
-            assert_eq!(true, result.contains(filename));
+            assert_eq!(
+                true,
+                result.iter().any(|lsfile| lsfile.filename == filename)
+            );
         }
     }
 }
