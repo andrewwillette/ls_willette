@@ -5,21 +5,21 @@ use std::path::Path;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let files: HashSet<LsFile>;
     if args.len() > 1 {
         let filepath_arg = &args[1];
-        // TODO: handle if provided argument is a file / directory
-        files = match get_directory_files(Path::new(filepath_arg)) {
-            Ok(files) => files,
-            Err(_) => panic!("Error getting directory files"),
-        };
+        let dir = Path::new(filepath_arg);
+        if let Ok(files) = get_files_from_path(dir) {
+            println!("{:?}", files);
+        } else {
+            println!("Failed to run in {} directory", dir.display())
+        }
     } else {
-        files = match get_directory_files(Path::new(".")) {
-            Ok(files) => files,
-            Err(_) => panic!("Error getting directory files"),
-        };
+        if let Ok(files) = get_files_from_path(Path::new(".")) {
+            println!("{:?}", files);
+        } else {
+            println!("Failed to run in \".\" directory")
+        }
     }
-    println!("{:?}", files);
 }
 
 #[derive(PartialEq, Eq, Hash, Debug)]
@@ -33,30 +33,48 @@ struct LsFile {
 #[derive(Debug)]
 pub enum WilletteLsError {
     ProvidedDirectoryInvalid,
+    FilepathToStringConversion,
+    DirEntryErr,
+    FilePathErr,
 }
 
-fn get_directory_files(filepath: &Path) -> Result<HashSet<LsFile>, WilletteLsError> {
+fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, WilletteLsError> {
     let mut files: HashSet<LsFile> = Default::default();
-    let readdir: fs::ReadDir = match fs::read_dir(filepath.to_str().unwrap()) {
-        Ok(readdir) => readdir,
-        Err(error) => panic!("Invalid directory provided. {}", error),
+    if let Some(file_path_string) = filepath.to_str() {
+        if let Ok(dir_contents) = fs::read_dir(file_path_string) {
+            for dir_entry in dir_contents {
+                if let Ok(filepath) = dir_entry {
+                    if let Some(filename) = filepath.file_name().to_str() {
+                        let lsfile: LsFile = LsFile {
+                            filename: filename.to_string(),
+                            privileges: "".to_string(),
+                            last_edit_time: "".to_string(),
+                            size: 0,
+                        };
+                        files.insert(lsfile);
+                    } else {
+                        return Err(WilletteLsError::FilepathToStringConversion);
+                    };
+                } else {
+                    return Err(WilletteLsError::DirEntryErr);
+                };
+            }
+            return Ok(files);
+        } else {
+            if let Ok(_) = std::fs::File::open(filepath) {
+                let lsfile: LsFile = LsFile {
+                    filename: filepath.to_str().unwrap().to_string(),
+                    privileges: "".to_string(),
+                    last_edit_time: "".to_string(),
+                    size: 0,
+                };
+                files.insert(lsfile);
+                return Ok(files);
+            } else {
+                return Err(WilletteLsError::FilePathErr);
+            }
+        }
     };
-    for file in readdir {
-        let filepath: String = match file {
-            Ok(file) => match file.file_name().to_str() {
-                None => panic!("Invalid file name."),
-                Some(filename) => filename.to_string(),
-            },
-            Err(err) => panic!("Invalid file provided. {}", err),
-        };
-        let lsfile: LsFile = LsFile {
-            filename: filepath,
-            privileges: "".to_string(),
-            last_edit_time: "".to_string(),
-            size: 0,
-        };
-        files.insert(lsfile);
-    }
     return Ok(files);
 }
 
@@ -73,7 +91,7 @@ mod tests {
             "target",
             "Cargo.lock",
         ]);
-        let result = match get_directory_files(Path::new(".")) {
+        let result = match get_files_from_path(Path::new(".")) {
             Ok(files) => files,
             Err(_) => panic!("Error getting directory files"),
         };
