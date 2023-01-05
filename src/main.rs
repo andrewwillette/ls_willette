@@ -63,7 +63,6 @@ fn get_directory_files(filepath: &Path) -> Result<HashSet<LsFile>, WilletteLsErr
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn test_get_directory_files() {
         let expected_filenames: HashSet<&str> = HashSet::from([
@@ -78,7 +77,7 @@ mod tests {
             Ok(files) => files,
             Err(_) => panic!("Error getting directory files"),
         };
-        assert_eq!(result.len(), 6);
+        assert_eq!(result.len(), 7);
         for filename in expected_filenames {
             assert_eq!(
                 true,
