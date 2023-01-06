@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 use std::env;
 use std::fs;
+use std::io::{Error, ErrorKind};
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
 fn main() {
@@ -38,25 +40,28 @@ pub enum WilletteLsError {
     FilePathErr,
 }
 
-fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, WilletteLsError> {
+fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
     let mut files: HashSet<LsFile> = Default::default();
     if let Some(file_path_string) = filepath.to_str() {
         if let Ok(dir_contents) = fs::read_dir(file_path_string) {
             for dir_entry in dir_contents {
-                if let Ok(filepath) = dir_entry {
-                    if let Some(filename) = filepath.file_name().to_str() {
-                        let lsfile: LsFile = LsFile {
-                            filename: filename.to_string(),
-                            privileges: "".to_string(),
-                            last_edit_time: "".to_string(),
-                            size: 0,
-                        };
-                        files.insert(lsfile);
-                    } else {
-                        return Err(WilletteLsError::FilepathToStringConversion);
+                let filepath = dir_entry?;
+                if let Some(filename) = filepath.file_name().to_str() {
+                    let meta = fs::metadata(&filename.to_string())?;
+                    let permissions = meta.permissions();
+                    let mode = permissions.mode();
+                    let lsfile: LsFile = LsFile {
+                        filename: filename.to_string(),
+                        privileges: format!("{mode:o}"),
+                        last_edit_time: "".to_string(),
+                        size: 0,
                     };
+                    files.insert(lsfile);
                 } else {
-                    return Err(WilletteLsError::DirEntryErr);
+                    return Err(Error::new(
+                        ErrorKind::Other,
+                        "Failed to convert filepath to string.",
+                    ));
                 };
             }
             return Ok(files);
@@ -71,7 +76,7 @@ fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, WilletteLsErr
                 files.insert(lsfile);
                 return Ok(files);
             } else {
-                return Err(WilletteLsError::FilePathErr);
+                return Err(Error::new(ErrorKind::Other, "Failed to open filepath."));
             }
         }
     };
