@@ -32,14 +32,6 @@ struct LsFile {
     size: u64,
 }
 
-#[derive(Debug)]
-pub enum WilletteLsError {
-    ProvidedDirectoryInvalid,
-    FilepathToStringConversion,
-    DirEntryErr,
-    FilePathErr,
-}
-
 fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
     let mut files: HashSet<LsFile> = Default::default();
     if let Some(file_path_string) = filepath.to_str() {
