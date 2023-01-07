@@ -87,8 +87,8 @@ fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
 /// Declaring the parameter base_10 is somewhat redundant
 /// given it is of type u32.
 fn get_rwx_from_st_mode(base_10_st_mode: u32) -> String {
-    let octaled_mode: String = format!("{:o}", base_10_st_mode);
-    let last_three_digits: String = octaled_mode.chars().rev().take(3).collect();
+    let mode_octal: String = format!("{:o}", base_10_st_mode);
+    let last_three_digits: String = mode_octal.chars().rev().take(3).collect();
     // have to .rev() again because chars().rev().take() "pops"
     // the last three values, the "popping" makes them backwards for our use.
     let last_three_digits_reversed: String = last_three_digits.chars().rev().collect();
