@@ -91,15 +91,6 @@ fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
     return Ok(files);
 }
 
-#[test]
-fn test_file_open() {
-    assert_eq!(true, true);
-    match std::fs::File::open("./..") {
-        Ok(_) => assert_eq!(true, true),
-        Err(_) => assert_eq!(true, false),
-    };
-}
-
 /// Convert the base10 OS st_mode to rwx format.
 /// Declaring the parameter base_10 is somewhat redundant
 /// given it is of type u32.
