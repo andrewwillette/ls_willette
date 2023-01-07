@@ -5,25 +5,6 @@ use std::io::{Error, ErrorKind};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() > 1 {
-        let filepath_arg = &args[1];
-        let dir = Path::new(filepath_arg);
-        if let Ok(files) = get_files_from_path(dir) {
-            println!("{:?}", files);
-        } else {
-            println!("Failed to run in {} directory", dir.display())
-        }
-    } else {
-        if let Ok(files) = get_files_from_path(Path::new(".")) {
-            println!("{:?}", files);
-        } else {
-            println!("Failed to run in \".\" directory")
-        }
-    }
-}
-
 #[derive(PartialEq, Eq, Hash, Debug)]
 struct LsFile {
     filename: String,
@@ -32,6 +13,33 @@ struct LsFile {
     size: u64,
 }
 
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 {
+        let filepath_arg = &args[1];
+        let dir = Path::new(filepath_arg);
+        if let Ok(files) = get_files_from_path(dir) {
+            display_files(files);
+        } else {
+            println!("Failed to run in {} directory", dir.display())
+        }
+    } else {
+        if let Ok(files) = get_files_from_path(Path::new(".")) {
+            display_files(files);
+        } else {
+            println!("Failed to run in \".\" directory")
+        }
+    }
+}
+
+/// displays the files to the console
+fn display_files(files: HashSet<LsFile>) {
+    for file in files {
+        println!("{:?}", file);
+    }
+}
+
+/// returns a HashSet of LsFile structs
 fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
     let mut files: HashSet<LsFile> = Default::default();
     if let Some(file_path_string) = filepath.to_str() {
