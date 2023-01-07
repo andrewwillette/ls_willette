@@ -52,7 +52,7 @@ fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
                     let mode = permissions.mode();
                     let lsfile: LsFile = LsFile {
                         filename: filename.to_string(),
-                        privileges: format!("{mode:o}"),
+                        privileges: get_rwx_from_st_mode(mode),
                         last_edit_time: "".to_string(),
                         size: 0,
                     };
@@ -83,9 +83,44 @@ fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
     return Ok(files);
 }
 
+/// Convert the base10 OS st_mode to rwx format.
+/// Declaring the parameter base_10 is somewhat redundant
+/// given it is of type u32.
+fn get_rwx_from_st_mode(base_10_st_mode: u32) -> String {
+    let octaled_mode: String = format!("{:o}", base_10_st_mode);
+    let last_three_digits: String = octaled_mode.chars().rev().take(3).collect();
+    // have to .rev() again because chars().rev().take() "pops"
+    // the last three values, the "popping" makes them backwards for our use.
+    let last_three_digits_reversed: String = last_three_digits.chars().rev().collect();
+    let mut rwx_repr: String = "".to_string();
+    for char in last_three_digits_reversed.chars() {
+        match char.to_string().as_str() {
+            "0" => rwx_repr.push_str("---"),
+            "1" => rwx_repr.push_str("--x"),
+            "3" => rwx_repr.push_str("-wx"),
+            "4" => rwx_repr.push_str("r--"),
+            "5" => rwx_repr.push_str("r-x"),
+            "6" => rwx_repr.push_str("rw-"),
+            "7" => rwx_repr.push_str("rwx"),
+            _ => rwx_repr.push_str("???"),
+        }
+    }
+    return rwx_repr;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    /// Values accessed from printing the modes in main().
+    fn test_get_rwx_from_st_mode() {
+        let result = get_rwx_from_st_mode(16877);
+        assert_eq!("rwxr-xr-x", result);
+        let result = get_rwx_from_st_mode(33188);
+        assert_eq!("rw-r--r--", result);
+    }
+
     #[test]
     fn test_get_directory_files() {
         let expected_filenames: HashSet<&str> = HashSet::from([
