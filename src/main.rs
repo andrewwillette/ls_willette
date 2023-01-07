@@ -18,16 +18,18 @@ fn main() {
     if args.len() > 1 {
         let filepath_arg = &args[1];
         let dir = Path::new(filepath_arg);
-        if let Ok(files) = get_files_from_path(dir) {
-            display_files(files);
-        } else {
-            println!("Failed to run in {} directory", dir.display())
+        match get_files_from_path(dir) {
+            Ok(files) => {
+                display_files(files);
+            }
+            Err(e) => println!("Error: {}", e),
         }
     } else {
-        if let Ok(files) = get_files_from_path(Path::new(".")) {
-            display_files(files);
-        } else {
-            println!("Failed to run in \".\" directory")
+        match get_files_from_path(Path::new(".")) {
+            Ok(files) => {
+                display_files(files);
+            }
+            Err(e) => println!("Error: {}", e),
         }
     }
 }
@@ -46,17 +48,23 @@ fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
         if let Ok(dir_contents) = fs::read_dir(file_path_string) {
             for dir_entry in dir_contents {
                 let filepath = dir_entry?;
-                if let Some(filename) = filepath.file_name().to_str() {
-                    let meta = fs::metadata(&filename.to_string())?;
-                    let permissions = meta.permissions();
-                    let mode = permissions.mode();
-                    let lsfile: LsFile = LsFile {
-                        filename: filename.to_string(),
-                        privileges: get_rwx_from_st_mode(mode),
-                        last_edit_time: "".to_string(),
-                        size: 0,
+                if let Some(filename) = filepath.path().to_str() {
+                    if let Ok(meta) = fs::metadata(&filename) {
+                        let permissions = meta.permissions();
+                        let mode = permissions.mode();
+                        let lsfile: LsFile = LsFile {
+                            filename: filename.to_string(),
+                            privileges: get_rwx_from_st_mode(mode),
+                            last_edit_time: "".to_string(),
+                            size: 0,
+                        };
+                        files.insert(lsfile);
+                    } else {
+                        return Err(Error::new(
+                            ErrorKind::Other,
+                            format!("Failed to convert filename to string : {}.", filename),
+                        ));
                     };
-                    files.insert(lsfile);
                 } else {
                     return Err(Error::new(
                         ErrorKind::Other,
@@ -79,8 +87,17 @@ fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
                 return Err(Error::new(ErrorKind::Other, "Failed to open filepath."));
             }
         }
-    };
+    }
     return Ok(files);
+}
+
+#[test]
+fn test_file_open() {
+    assert_eq!(true, true);
+    match std::fs::File::open("./..") {
+        Ok(_) => assert_eq!(true, true),
+        Err(_) => assert_eq!(true, false),
+    };
 }
 
 /// Convert the base10 OS st_mode to rwx format.
