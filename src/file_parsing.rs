@@ -4,7 +4,8 @@ use std::fs;
 use std::io::{Error, ErrorKind};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use tracing::{trace, Level};
+use tracing::Level;
+use tracing::{debug, error, info};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber;
 use tracing_subscriber::fmt::format;
@@ -46,29 +47,25 @@ pub fn display_files(files: HashSet<LsFile>) {
 
 /// returns a HashSet of LsFile structs
 pub fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
-    // let filepath_str = filepath.to_str().unwrap();
     let mut files: HashSet<LsFile> = Default::default();
     if let Some(file_path_string) = filepath.to_str() {
         if let Ok(dir_contents) = fs::read_dir(file_path_string) {
             for dir_entry in dir_contents {
-                let filepath = dir_entry?.path();
-                let symlink_followed = fs::canonicalize(&filepath)?;
-                trace!("symlink_followed: {}", symlink_followed.display());
-                // debug!("symlink_followed: {:?}", symsdf:qa
-                // link_followed);
-                if let Some(filename) = symlink_followed.to_str() {
-                    let ls_file = LsFile::new(filename.to_string());
+                if let Ok(dir_entry_ok) = dir_entry {
+                    let path = dir_entry_ok.path();
+                    let ls_file = LsFile::new(path.to_str().unwrap().to_string());
                     files.insert(ls_file);
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::Other,
-                        "Failed to convert filepath to string.",
-                    ));
+                    error!("Error getting dir_entry_ok");
+                    panic!("Error getting dir_entry_ok");
                 };
             }
             return Ok(files);
         } else {
-            if let Ok(file) = std::fs::File::open(filepath) {
+            debug!(
+                "filepath provided to get_files_from_path failed read_dir call, probably a file"
+            );
+            if let Ok(_) = std::fs::File::open(filepath) {
                 let ls_file = LsFile::new(filepath.to_str().unwrap().to_string());
                 files.insert(ls_file);
             } else {
@@ -114,18 +111,47 @@ pub struct LsFile {
 
 impl LsFile {
     fn new(filename: String) -> LsFile {
+        info!("LsFile::new top");
         if let Ok(meta) = fs::metadata(&filename) {
+            info!("LsFile::new fs::metadata OK");
             let permissions = meta.permissions();
             let mode = permissions.mode();
-            let lsfile: LsFile = LsFile {
-                filename: filename.to_string(),
-                privileges: get_rwx_from_st_mode(mode),
-                last_edit_time: "".to_string(),
-                size: 0,
-            };
-            return lsfile;
+
+            let filepath = Path::new(&filename);
+            info!("filepath: {:?}", filepath);
+            if let Some(filename) = filepath.file_name() {
+                info!("filename: {:?}", filename);
+                if let Some(filename_string) = filename.to_str() {
+                    info!("filename_string: {:?}", filename_string);
+                    return LsFile {
+                        filename: filename_string.to_string(),
+                        privileges: get_rwx_from_st_mode(mode),
+                        last_edit_time: "".to_string(),
+                        size: meta.len(),
+                    };
+                } else {
+                    panic!("failed to convert filename to string")
+                }
+            } else {
+                panic!("failed to get filename from filepath")
+            }
         } else {
-            todo!();
+            info!("LsFile::new fs::metadata not OK");
+            if let Ok(meta) = fs::symlink_metadata(&filename) {
+                info!("LsFile::new fs::symlink_metadata OK");
+                let permissions = meta.permissions();
+                let mode = permissions.mode();
+                let lsfile: LsFile = LsFile {
+                    filename: filename.to_string(),
+                    privileges: get_rwx_from_st_mode(mode),
+                    last_edit_time: "".to_string(),
+                    size: 0,
+                };
+                return lsfile;
+            } else {
+                info!("hitting todo");
+                todo!();
+            }
         }
     }
 }
