@@ -4,9 +4,10 @@ use std::fs;
 use std::io::{Error, ErrorKind};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
-use tracing::{debug, error, info, Level};
+use tracing::{trace, Level};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber;
+use tracing_subscriber::fmt::format;
 
 #[derive(PartialEq, Eq, Hash, Debug)]
 struct LsFile {
@@ -17,7 +18,18 @@ struct LsFile {
 }
 
 fn main() {
-    configure_file_logging();
+    let file_appender = RollingFileAppender::new(
+        Rotation::DAILY,
+        "/Users/andrewwillette/git/ls_willette/target/logs",
+        "ls_willette.log",
+    );
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+    tracing_subscriber::fmt()
+        .with_writer(non_blocking)
+        .with_max_level(Level::TRACE)
+        .event_format(format().pretty())
+        .init();
+
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 {
         let filepath_arg = &args[1];
@@ -47,6 +59,12 @@ fn display_files(files: HashSet<LsFile>) {
 
 /// returns a HashSet of LsFile structs
 fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
+    // trace!(format!("get_files_from_path "));
+    let filepath_str = filepath.to_str().unwrap();
+    trace!(
+        "{}",
+        format!("get_files_from_path filepath: {filepath_str}")
+    );
     let mut files: HashSet<LsFile> = Default::default();
     if let Some(file_path_string) = filepath.to_str() {
         if let Ok(dir_contents) = fs::read_dir(file_path_string) {
@@ -99,6 +117,7 @@ fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
 /// Declaring the parameter base_10 is somewhat redundant
 /// given it is of type u32.
 fn get_rwx_from_st_mode(base_10_st_mode: u32) -> String {
+    trace!("{}", format!("get_rwx_from_st_mode {base_10_st_mode}"));
     let mode_octal: String = format!("{:o}", base_10_st_mode);
     let last_three_digits: String = mode_octal.chars().rev().take(3).collect();
     // have to .rev() again because chars().rev().take() "pops"
@@ -156,23 +175,4 @@ mod tests {
             );
         }
     }
-
-    #[test]
-    fn test_configure_file_logging() {
-        configure_file_logging();
-    }
-}
-
-fn configure_file_logging() {
-    let file_appender = RollingFileAppender::new(
-        Rotation::DAILY,
-        "/Users/andrewwillette/git/ls_willette/target/logs",
-        "ls_willette.log",
-    );
-    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-    tracing_subscriber::fmt()
-        .with_writer(non_blocking)
-        .with_max_level(Level::TRACE)
-        .init();
-    info!("file logging configured");
 }
