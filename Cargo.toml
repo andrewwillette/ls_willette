@@ -17,3 +17,7 @@ debug = true
 [profile.release]
 opt-level = 3
 debug = false
+
+# members=[
+# "test/test",
+# ]
