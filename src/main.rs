@@ -4,6 +4,9 @@ use std::fs;
 use std::io::{Error, ErrorKind};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
+use tracing::{debug, error, info, Level};
+use tracing_appender::rolling::{RollingFileAppender, Rotation};
+use tracing_subscriber;
 
 #[derive(PartialEq, Eq, Hash, Debug)]
 struct LsFile {
@@ -14,6 +17,7 @@ struct LsFile {
 }
 
 fn main() {
+    configure_file_logging();
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 {
         let filepath_arg = &args[1];
@@ -37,7 +41,7 @@ fn main() {
 /// displays the files to the console
 fn display_files(files: HashSet<LsFile>) {
     for file in files {
-        println!("{:?}", file);
+        println!("{}", format!("{} {}", file.privileges, file.filename));
     }
 }
 
@@ -130,6 +134,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Fails when contents of directory running in changes."]
     fn test_get_directory_files() {
         let expected_filenames: HashSet<&str> = HashSet::from([
             "Cargo.toml",
@@ -151,4 +156,23 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_configure_file_logging() {
+        configure_file_logging();
+    }
+}
+
+fn configure_file_logging() {
+    let file_appender = RollingFileAppender::new(
+        Rotation::DAILY,
+        "/Users/andrewwillette/git/ls_willette/target/logs",
+        "ls_willette.log",
+    );
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+    tracing_subscriber::fmt()
+        .with_writer(non_blocking)
+        .with_max_level(Level::TRACE)
+        .init();
+    info!("file logging configured");
 }
