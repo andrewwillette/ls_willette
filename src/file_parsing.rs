@@ -1,3 +1,5 @@
+use chrono::offset::Utc;
+use chrono::DateTime;
 use std::collections::HashSet;
 use std::env;
 use std::fs;
@@ -41,7 +43,13 @@ pub fn run_ls() {
 /// displays the files to the console
 pub fn display_files(files: HashSet<LsFile>) {
     for file in files {
-        println!("{}", format!("{} {}", file.privileges, file.filename));
+        println!(
+            "{}",
+            format!(
+                "{} {} {}",
+                file.privileges, file.filename, file.last_edit_time
+            )
+        );
     }
 }
 
@@ -118,11 +126,16 @@ impl LsFile {
             let filepath = Path::new(&filename);
             if let Some(filename) = filepath.file_name() {
                 if let Some(filename_string) = filename.to_str() {
-                    return LsFile {
-                        filename: filename_string.to_string(),
-                        privileges: get_rwx_from_st_mode(mode),
-                        last_edit_time: "".to_string(),
-                        size: meta.len(),
+                    if let Ok(last_edit_time) = meta.modified() {
+                        let datetime = DateTime::<Utc>::from(last_edit_time);
+                        return LsFile {
+                            filename: filename_string.to_string(),
+                            privileges: get_rwx_from_st_mode(mode),
+                            last_edit_time: format!("{}", datetime.format("%d/%m/%Y %T")),
+                            size: meta.len(),
+                        };
+                    } else {
+                        panic!("Failed to get last_edit_time");
                     };
                 } else {
                     panic!("failed to convert filename to string")
@@ -137,11 +150,16 @@ impl LsFile {
                 let file_path = Path::new(&filename);
                 if let Some(filename) = file_path.file_name() {
                     if let Some(filename_string) = filename.to_str() {
-                        return LsFile {
-                            filename: filename_string.to_string(),
-                            privileges: get_rwx_from_st_mode(mode),
-                            last_edit_time: "".to_string(),
-                            size: meta.len(),
+                        if let Ok(last_edit_time) = meta.modified() {
+                            let datetime: DateTime<Utc> = last_edit_time.into();
+                            return LsFile {
+                                filename: filename_string.to_string(),
+                                privileges: get_rwx_from_st_mode(mode),
+                                last_edit_time: format!("{}", datetime.format("%d/%m/%Y %T")),
+                                size: meta.len(),
+                            };
+                        } else {
+                            panic!("Failed to get last_edit_time from symlink");
                         };
                     } else {
                         panic!("failed to convert filename to string")
