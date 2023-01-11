@@ -5,7 +5,7 @@ use std::io::{Error, ErrorKind};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use tracing::Level;
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber;
 use tracing_subscriber::fmt::format;
@@ -111,18 +111,13 @@ pub struct LsFile {
 
 impl LsFile {
     fn new(filename: String) -> LsFile {
-        info!("LsFile::new top");
         if let Ok(meta) = fs::metadata(&filename) {
-            info!("LsFile::new fs::metadata OK");
             let permissions = meta.permissions();
             let mode = permissions.mode();
 
             let filepath = Path::new(&filename);
-            info!("filepath: {:?}", filepath);
             if let Some(filename) = filepath.file_name() {
-                info!("filename: {:?}", filename);
                 if let Some(filename_string) = filename.to_str() {
-                    info!("filename_string: {:?}", filename_string);
                     return LsFile {
                         filename: filename_string.to_string(),
                         privileges: get_rwx_from_st_mode(mode),
@@ -136,9 +131,7 @@ impl LsFile {
                 panic!("failed to get filename from filepath")
             }
         } else {
-            info!("LsFile::new fs::metadata not OK");
             if let Ok(meta) = fs::symlink_metadata(&filename) {
-                info!("LsFile::new fs::symlink_metadata OK");
                 let permissions = meta.permissions();
                 let mode = permissions.mode();
                 let file_path = Path::new(&filename);
@@ -157,8 +150,7 @@ impl LsFile {
                     panic!("failed on call file_path.file_name")
                 }
             } else {
-                info!("hitting todo");
-                todo!();
+                panic!("failed on call fs::symlink_metadata")
             }
         }
     }
