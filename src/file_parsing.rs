@@ -134,7 +134,7 @@ impl LsFile {
                         return LsFile {
                             filename: filename_string.to_string(),
                             privileges: get_rwx_from_st_mode(mode),
-                            last_edit_time: tz_aware.to_string(),
+                            last_edit_time: format!("{}", tz_aware.format("%d/%m/%Y %T")),
                             size: meta.len(),
                         };
                     } else {
@@ -155,10 +155,11 @@ impl LsFile {
                     if let Some(filename_string) = filename.to_str() {
                         if let Ok(last_edit_time) = meta.modified() {
                             let datetime: DateTime<Utc> = last_edit_time.into();
+                            let tz_aware = Central.from_utc_datetime(&datetime.naive_utc());
                             return LsFile {
                                 filename: filename_string.to_string(),
                                 privileges: get_rwx_from_st_mode(mode),
-                                last_edit_time: format!("{}", datetime.format("%d/%m/%Y %T")),
+                                last_edit_time: format!("{}", tz_aware.format("%d/%m/%Y %T")),
                                 size: meta.len(),
                             };
                         } else {
