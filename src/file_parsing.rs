@@ -141,13 +141,21 @@ impl LsFile {
                 info!("LsFile::new fs::symlink_metadata OK");
                 let permissions = meta.permissions();
                 let mode = permissions.mode();
-                let lsfile: LsFile = LsFile {
-                    filename: filename.to_string(),
-                    privileges: get_rwx_from_st_mode(mode),
-                    last_edit_time: "".to_string(),
-                    size: 0,
-                };
-                return lsfile;
+                let file_path = Path::new(&filename);
+                if let Some(filename) = file_path.file_name() {
+                    if let Some(filename_string) = filename.to_str() {
+                        return LsFile {
+                            filename: filename_string.to_string(),
+                            privileges: get_rwx_from_st_mode(mode),
+                            last_edit_time: "".to_string(),
+                            size: meta.len(),
+                        };
+                    } else {
+                        panic!("failed to convert filename to string")
+                    }
+                } else {
+                    panic!("failed on call file_path.file_name")
+                }
             } else {
                 info!("hitting todo");
                 todo!();
