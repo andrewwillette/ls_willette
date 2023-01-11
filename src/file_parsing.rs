@@ -1,5 +1,6 @@
 use chrono::offset::Utc;
-use chrono::DateTime;
+use chrono::LocalResult::Single;
+use chrono::{DateTime, TimeZone};
 use std::collections::HashSet;
 use std::env;
 use std::fs;
@@ -117,6 +118,7 @@ pub struct LsFile {
     pub size: u64,
 }
 
+use chrono_tz::US::Central;
 impl LsFile {
     fn new(filename: String) -> LsFile {
         if let Ok(meta) = fs::metadata(&filename) {
@@ -128,10 +130,11 @@ impl LsFile {
                 if let Some(filename_string) = filename.to_str() {
                     if let Ok(last_edit_time) = meta.modified() {
                         let datetime = DateTime::<Utc>::from(last_edit_time);
+                        let tz_aware = Central.from_utc_datetime(&datetime.naive_utc());
                         return LsFile {
                             filename: filename_string.to_string(),
                             privileges: get_rwx_from_st_mode(mode),
-                            last_edit_time: format!("{}", datetime.format("%d/%m/%Y %T")),
+                            last_edit_time: tz_aware.to_string(),
                             size: meta.len(),
                         };
                     } else {
