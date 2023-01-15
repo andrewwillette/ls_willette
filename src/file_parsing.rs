@@ -19,6 +19,7 @@ use tracing_subscriber::fmt::format;
 pub struct Cli {
     #[arg(short = 'H', help = "Print size in human-readable format")]
     human_readable: bool,
+
     #[arg(short = 'l', help = "List files in the long format")]
     long: bool,
 
@@ -42,22 +43,28 @@ pub fn run_ls() {
 
     match get_files_from_path(Path::new(&args.filepath)) {
         Ok(files) => {
-            display_files(files);
+            display_files(files, args);
         }
         Err(e) => println!("Error running get_files_from_path: {}", e),
     }
 }
 
 /// displays the files to the console
-pub fn display_files(files: HashSet<LsFile>) {
-    for file in files {
-        println!(
-            "{}",
-            format!(
-                "{} {} {} {}",
-                file.privileges, file.filename, file.size, file.last_edit_time
-            )
-        );
+pub fn display_files(files: HashSet<LsFile>, cli: Cli) {
+    if cli.long {
+        for file in files {
+            println!(
+                "{}",
+                format!(
+                    "{} {} {} {}",
+                    file.privileges, file.filename, file.size, file.last_edit_time
+                )
+            );
+        }
+    } else {
+        for file in files {
+            println!("{}", format!("{}", file.filename));
+        }
     }
 }
 
