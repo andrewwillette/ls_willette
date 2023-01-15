@@ -1,5 +1,6 @@
 use chrono::offset::Utc;
 use chrono::{DateTime, TimeZone};
+use clap::Parser;
 use std::collections::HashSet;
 use std::env;
 use std::fs;
@@ -12,7 +13,19 @@ use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber;
 use tracing_subscriber::fmt::format;
 
+/// struct for containing CLI argument logic.
+/// For an example, see <https://github.com/clap-rs/clap/blob/master/examples/escaped-positional-derive.rs>
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+pub struct Cli {
+    #[arg(short = 'H')]
+    human_readable: bool,
+    #[arg(default_value = ".")]
+    filepath: String,
+}
+
 pub fn run_ls() {
+    let args = Cli::parse();
     let file_appender = RollingFileAppender::new(
         Rotation::DAILY,
         "/Users/andrewwillette/git/ls_willette/target/logs",
@@ -25,14 +38,7 @@ pub fn run_ls() {
         .event_format(format().pretty())
         .init();
 
-    let args: Vec<String> = env::args().collect();
-    let dir: &Path;
-    if args.len() > 1 {
-        dir = Path::new(&args[1]);
-    } else {
-        dir = Path::new(".");
-    }
-    match get_files_from_path(dir) {
+    match get_files_from_path(Path::new(&args.filepath)) {
         Ok(files) => {
             display_files(files);
         }
