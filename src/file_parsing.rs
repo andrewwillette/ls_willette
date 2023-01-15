@@ -3,10 +3,12 @@ use chrono::{DateTime, TimeZone};
 use chrono_tz::US::Central;
 use clap::Parser;
 use std::collections::HashSet;
+use std::convert::TryFrom;
 use std::fs;
 use std::io::{Error, ErrorKind};
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
+use string_builder::Builder;
 use tracing::Level;
 use tracing::{debug, error};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
@@ -62,10 +64,25 @@ pub fn display_files(files: HashSet<LsFile>, cli: Cli) {
             );
         }
     } else {
+        let mut builder = Builder::default();
         for file in files {
-            println!("{}", format!("{}", file.filename));
+            builder.append(file.filename);
         }
+        println!("{}", format!("{}", builder.string().unwrap()));
     }
+}
+
+/// returns the filename with spaces appended to reach the padded_length
+pub fn get_filename_display_with_padding(filename: String, padded_length: i8) -> String {
+    let mut result = &filename;
+    let mut filename_length = filename.chars().count();
+    let padded_length = padded_length as usize;
+    while filename_length < padded_length {
+        let updated_result = format!("{} ", result).to_string();
+        result = &updated_result;
+        filename_length = result.chars().count();
+    }
+    return "".to_string();
 }
 
 /// returns a HashSet of LsFile structs
@@ -131,6 +148,7 @@ pub struct LsFile {
     pub last_edit_time: String,
     pub size: u64,
 }
+
 impl LsFile {
     fn new(filename: String) -> LsFile {
         if let Ok(meta) = fs::metadata(&filename) {

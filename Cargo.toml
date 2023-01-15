@@ -1,23 +1,16 @@
-[workspace.package]
-include = [
-  "src/**/*",
-  "Cargo.toml",
-]
-
 [package]
 name = "ls_willette"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 chrono = "0.4.23"
 chrono-tz = "0.8.1"
 clap = {version="4.0.32", features=["derive"]}
-# clap_derive = { version = "4.1.0", optional = true }
 log = "0.4"
 once_cell = { version = "1.17.0", optional = true }
+string-builder = "0.2.0"
+terminal_size = "0.2.3"
 tracing = "0.1.37"
 tracing-appender = "0.2.2"
 tracing-subscriber = "0.3.16"
@@ -28,4 +21,3 @@ debug = true
 [profile.release]
 opt-level = 3
 debug = false
-
