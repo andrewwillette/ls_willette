@@ -1,8 +1,8 @@
 use chrono::offset::Utc;
 use chrono::{DateTime, TimeZone};
+use chrono_tz::US::Central;
 use clap::Parser;
 use std::collections::HashSet;
-use std::env;
 use std::fs;
 use std::io::{Error, ErrorKind};
 use std::os::unix::fs::PermissionsExt;
@@ -13,14 +13,16 @@ use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber;
 use tracing_subscriber::fmt::format;
 
-/// struct for containing CLI argument logic.
-/// For an example, see <https://github.com/clap-rs/clap/blob/master/examples/escaped-positional-derive.rs>
+/// list directory contents
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
-    #[arg(short = 'H')]
+    #[arg(short = 'H', help = "Print size in human-readable format")]
     human_readable: bool,
-    #[arg(default_value = ".")]
+    #[arg(short = 'l', help = "List files in the long format")]
+    long: bool,
+
+    #[arg(default_value = ".", help = "The directory to list contents of")]
     filepath: String,
 }
 
@@ -52,8 +54,8 @@ pub fn display_files(files: HashSet<LsFile>) {
         println!(
             "{}",
             format!(
-                "{} {} {}",
-                file.privileges, file.filename, file.last_edit_time
+                "{} {} {} {}",
+                file.privileges, file.filename, file.size, file.last_edit_time
             )
         );
     }
@@ -122,8 +124,6 @@ pub struct LsFile {
     pub last_edit_time: String,
     pub size: u64,
 }
-
-use chrono_tz::US::Central;
 impl LsFile {
     fn new(filename: String) -> LsFile {
         if let Ok(meta) = fs::metadata(&filename) {
