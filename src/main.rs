@@ -1,23 +1,23 @@
-fn main() {
-    run_ls();
-}
+use std::collections::HashSet;
+use std::fs;
+use std::io::{Error, ErrorKind};
+use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 
 use chrono::offset::Utc;
 use chrono::{DateTime, TimeZone};
 use chrono_tz::US::Central;
 use clap::Parser;
-use std::collections::HashSet;
-
-use std::fs;
-use std::io::{Error, ErrorKind};
-use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
 use string_builder::Builder;
 use tracing::Level;
 use tracing::{debug, error};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber;
 use tracing_subscriber::fmt::format;
+
+fn main() {
+    run_ls();
+}
 
 /// list directory contents
 #[derive(Parser)]
