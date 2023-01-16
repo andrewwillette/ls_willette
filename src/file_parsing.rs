@@ -3,7 +3,7 @@ use chrono::{DateTime, TimeZone};
 use chrono_tz::US::Central;
 use clap::Parser;
 use std::collections::HashSet;
-use std::convert::TryFrom;
+
 use std::fs;
 use std::io::{Error, ErrorKind};
 use std::os::unix::fs::PermissionsExt;
@@ -17,7 +17,7 @@ use tracing_subscriber::fmt::format;
 
 /// list directory contents
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(author = "Andrew Willette", version, about, long_about = None)]
 pub struct Cli {
     #[arg(short = 'H', help = "Print size in human-readable format")]
     human_readable: bool,
@@ -74,15 +74,15 @@ pub fn display_files(files: HashSet<LsFile>, cli: Cli) {
 
 /// returns the filename with spaces appended to reach the padded_length
 pub fn get_filename_display_with_padding(filename: String, padded_length: i8) -> String {
-    let mut result = &filename;
-    let mut filename_length = filename.chars().count();
+    let mut result = filename;
+    let mut filename_length = result.chars().count();
     let padded_length = padded_length as usize;
     while filename_length < padded_length {
         let updated_result = format!("{} ", result).to_string();
-        result = &updated_result;
+        result = updated_result;
         filename_length = result.chars().count();
     }
-    return "".to_string();
+    return result.to_string();
 }
 
 /// returns a HashSet of LsFile structs
