@@ -8,7 +8,7 @@ use chrono::offset::Utc;
 use chrono::{DateTime, TimeZone};
 use chrono_tz::US::Central;
 use clap::Parser;
-use string_builder::Builder;
+use terminal_size::{terminal_size, Width};
 use tracing::Level;
 use tracing::{debug, error};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
@@ -22,7 +22,7 @@ fn main() {
 /// list directory contents
 #[derive(Parser)]
 #[command(author = "Andrew Willette", version, about, long_about = None)]
-pub struct Cli {
+struct Cli {
     #[arg(short = 'H', help = "Print size in human-readable format")]
     human_readable: bool,
 
@@ -33,7 +33,7 @@ pub struct Cli {
     filepath: String,
 }
 
-pub fn run_ls() {
+fn run_ls() {
     let args = Cli::parse();
     let file_appender = RollingFileAppender::new(
         Rotation::DAILY,
@@ -56,28 +56,86 @@ pub fn run_ls() {
 }
 
 /// displays the files to the console
-pub fn display_files(files: HashSet<LsFile>, cli: Cli) {
+fn display_files(files: Vec<LsFile>, cli: Cli) {
     if cli.long {
         for file in files {
             println!(
                 "{}",
                 format!(
                     "{} {} {} {}",
-                    file.privileges, file.filename, file.size, file.last_edit_time
+                    file.privileges.unwrap(),
+                    file.filename.unwrap(),
+                    file.size.unwrap(),
+                    file.last_edit_time.unwrap()
                 )
             );
         }
     } else {
-        let mut builder = Builder::default();
-        for file in files {
-            builder.append(file.filename);
-        }
-        println!("{}", format!("{}", builder.string().unwrap()));
+        display_default(files);
     }
 }
 
+fn display_default(files: Vec<LsFile>) -> HashSet<String> {
+    let mut console_out_rows: HashSet<String> = HashSet::new();
+    let mut row = String::from("");
+    let size = terminal_size();
+    let padded_length = get_padding_length(&files);
+    if let Some((Width(w), _)) = size {
+        for file in files {
+            let current_row_length = row.chars().count() as u16;
+            let new_word_w_padding =
+                get_filename_display_with_padding(file.filename.unwrap(), padded_length);
+            let current_line_plus_prospective_new =
+                current_row_length + (new_word_w_padding.chars().count() as u16);
+            // append to current line
+            if current_line_plus_prospective_new <= w {
+                println!("here1");
+                row = format!("{}{}", row, new_word_w_padding);
+            // write current line to output and begin next line
+            } else {
+                println!("here2");
+                console_out_rows.insert(row.to_string());
+                row = new_word_w_padding;
+            }
+            // if current_line < terminal_size::t
+            // builder.append(file.filename);
+        }
+        if !console_out_rows.contains(&row) {
+            println!("here3");
+            console_out_rows.insert(row.to_string());
+        }
+        for line in console_out_rows.iter() {
+            println!("{}", line);
+        }
+    // println!("{}", format!("{}", builder.string().unwrap()));
+    } else {
+        panic!("failed to get terminal width");
+    }
+    return console_out_rows;
+}
+
+/// returns appropriate space padding for output to console given the length
+/// of the longest filename
+fn get_padding_length(files: &Vec<LsFile>) -> i8 {
+    let mut longest_filename = 0;
+    for file in files {
+        // let mut filename_a: String = match file.filename {
+        //     Some(filename_unwrapped) => return filename_unwrapped,
+        //     None => return String::from(""),
+        // };
+        // let mut filename_length = filename_a.chars().count();
+        let filename_unwrapped = file.filename.unwrap();
+        let filename_length = filename_unwrapped.chars().count();
+        if filename_length > longest_filename {
+            longest_filename = filename_length;
+        }
+    }
+    let padding_length = (longest_filename - 2) * 2;
+    return padding_length as i8;
+}
+
 /// returns the filename with spaces appended to reach the padded_length
-pub fn get_filename_display_with_padding(filename: String, padded_length: i8) -> String {
+fn get_filename_display_with_padding(filename: String, padded_length: i8) -> String {
     let mut result = filename;
     let mut filename_length = result.chars().count();
     let padded_length = padded_length as usize;
@@ -86,19 +144,19 @@ pub fn get_filename_display_with_padding(filename: String, padded_length: i8) ->
         result = updated_result;
         filename_length = result.chars().count();
     }
-    return result.to_string();
+    return result;
 }
 
 /// returns a HashSet of LsFile structs
-pub fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
-    let mut files: HashSet<LsFile> = Default::default();
+fn get_files_from_path(filepath: &Path) -> Result<Vec<LsFile>, Error> {
+    let mut files: Vec<LsFile> = Vec::new();
     if let Some(file_path_string) = filepath.to_str() {
         if let Ok(dir_contents) = fs::read_dir(file_path_string) {
             for dir_entry in dir_contents {
                 if let Ok(dir_entry_ok) = dir_entry {
                     let path = dir_entry_ok.path();
                     let ls_file = LsFile::new(path.to_str().unwrap().to_string());
-                    files.insert(ls_file);
+                    files.push(ls_file);
                 } else {
                     error!("Error getting dir_entry_ok");
                     panic!("Error getting dir_entry_ok");
@@ -111,7 +169,7 @@ pub fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
             );
             if let Ok(_) = std::fs::File::open(filepath) {
                 let ls_file = LsFile::new(filepath.to_str().unwrap().to_string());
-                files.insert(ls_file);
+                files.push(ls_file);
             } else {
                 return Err(Error::new(ErrorKind::Other, "Failed to open filepath."));
             }
@@ -123,7 +181,7 @@ pub fn get_files_from_path(filepath: &Path) -> Result<HashSet<LsFile>, Error> {
 /// Convert the base10 OS st_mode to rwx format.
 /// Declaring the parameter base_10 is somewhat redundant
 /// given it is of type u32.
-pub fn get_rwx_from_st_mode(base_10_st_mode: u32) -> String {
+fn get_rwx_from_st_mode(base_10_st_mode: u32) -> String {
     let mode_octal: String = format!("{:o}", base_10_st_mode);
     let last_three_digits: String = mode_octal.chars().rev().take(3).collect();
     // have to .rev() again because chars().rev().take() "pops"
@@ -146,11 +204,11 @@ pub fn get_rwx_from_st_mode(base_10_st_mode: u32) -> String {
 }
 
 #[derive(PartialEq, Eq, Hash, Debug)]
-pub struct LsFile {
-    pub filename: String,
-    pub privileges: String,
-    pub last_edit_time: String,
-    pub size: u64,
+struct LsFile<'a> {
+    filename: &'a Option<String>,
+    privileges: Option<String>,
+    last_edit_time: Option<String>,
+    size: Option<u64>,
 }
 
 impl LsFile {
@@ -166,10 +224,10 @@ impl LsFile {
                         let datetime = DateTime::<Utc>::from(last_edit_time);
                         let tz_aware = Central.from_utc_datetime(&datetime.naive_utc());
                         return LsFile {
-                            filename: filename_string.to_string(),
-                            privileges: get_rwx_from_st_mode(mode),
-                            last_edit_time: format!("{}", tz_aware.format("%d/%m/%Y %T")),
-                            size: meta.len(),
+                            filename: Some(filename_string.to_string()),
+                            privileges: Some(get_rwx_from_st_mode(mode)),
+                            last_edit_time: Some(format!("{}", tz_aware.format("%d/%m/%Y %T"))),
+                            size: Some(meta.len()),
                         };
                     } else {
                         panic!("Failed to get last_edit_time");
@@ -191,10 +249,10 @@ impl LsFile {
                             let datetime: DateTime<Utc> = last_edit_time.into();
                             let tz_aware = Central.from_utc_datetime(&datetime.naive_utc());
                             return LsFile {
-                                filename: filename_string.to_string(),
-                                privileges: get_rwx_from_st_mode(mode),
-                                last_edit_time: format!("{}", tz_aware.format("%d/%m/%Y %T")),
-                                size: meta.len(),
+                                filename: Some(filename_string.to_string()),
+                                privileges: Some(get_rwx_from_st_mode(mode)),
+                                last_edit_time: Some(format!("{}", tz_aware.format("%d/%m/%Y %T"))),
+                                size: Some(meta.len()),
                             };
                         } else {
                             panic!("Failed to get last_edit_time from symlink");
@@ -213,6 +271,7 @@ impl LsFile {
 }
 
 /// TESTS
+
 #[test]
 fn test_get_rwx_from_st_mode() {
     let result = get_rwx_from_st_mode(16877);
@@ -224,23 +283,61 @@ fn test_get_rwx_from_st_mode() {
 #[test]
 #[ignore = "Fails when contents of directory running in changes."]
 fn test_get_directory_files() {
-    let expected_filenames: HashSet<&str> = HashSet::from([
-        "Cargo.toml",
-        "src",
-        ".git",
-        ".gitignore",
-        "target",
-        "Cargo.lock",
-    ]);
-    let result = match get_files_from_path(Path::new(".")) {
+    // let expected_filenames: Vec<&str> = vec![
+    //     "Cargo.toml",
+    //     "src",
+    //     ".git",
+    //     ".gitignore",
+    //     "target",
+    //     "Cargo.lock",
+    // ];
+    let ls_files = match get_files_from_path(Path::new(".")) {
         Ok(files) => files,
         Err(_) => panic!("Error getting directory files"),
     };
-    assert_eq!(result.len(), 7);
-    for filename in expected_filenames {
-        assert_eq!(
-            true,
-            result.iter().any(|lsfile| lsfile.filename == filename)
-        );
-    }
+    assert_eq!(ls_files.len(), 7);
+    // for filename in expected_filenames {
+    //     assert_eq!(
+    //         true,
+    //         ls_files
+    //             .iter()
+    //             .any(|lsfile| lsfile.filename.unwrap() == filename.to_string())
+    //     );
+    // }
+}
+
+#[test]
+fn test_get_filename_display_with_padding() {
+    let input = String::from("word");
+    let input_padded = get_filename_display_with_padding(input, 10);
+    assert_eq!("word      ", input_padded);
+
+    // this behavior might not be desirable
+    let input = String::from("word");
+    let input_padded = get_filename_display_with_padding(input, 2);
+    assert_eq!("word", input_padded);
+}
+
+#[test]
+fn test_display_default() {
+    let input: Vec<LsFile> = vec![
+        LsFile {
+            last_edit_time: Some(String::from("01/01/2020 00:00:00")),
+            filename: Some(String::from("Cargo.toml")),
+            privileges: None,
+            size: None,
+        },
+        LsFile {
+            last_edit_time: Some(String::from("01/01/2020 00:00:00")),
+            filename: Some(String::from("example.toml")),
+            privileges: None,
+            size: None,
+        },
+        // "src",
+        // ".git",
+        // ".gitignore",
+        // "target",
+        // "Cargo.lock",
+    ];
+    _ = display_default(input)
 }
