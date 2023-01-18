@@ -64,7 +64,7 @@ fn display_files(files: Vec<LsFile>, cli: Cli) {
                 format!(
                     "{} {} {} {}",
                     file.privileges.unwrap(),
-                    file.filename.unwrap(),
+                    file.filename,
                     file.size.unwrap(),
                     file.last_edit_time.unwrap()
                 )
@@ -81,56 +81,44 @@ fn display_default(files: Vec<LsFile>) -> HashSet<String> {
     let size = terminal_size();
     let padded_length = get_padding_length(&files);
     if let Some((Width(w), _)) = size {
-        for file in files {
+        files.into_iter().for_each(|file| {
             let current_row_length = row.chars().count() as u16;
             let new_word_w_padding =
-                get_filename_display_with_padding(file.filename.unwrap(), padded_length);
+                get_filename_display_with_padding(file.filename, padded_length);
             let current_line_plus_prospective_new =
                 current_row_length + (new_word_w_padding.chars().count() as u16);
             // append to current line
             if current_line_plus_prospective_new <= w {
-                println!("here1");
                 row = format!("{}{}", row, new_word_w_padding);
             // write current line to output and begin next line
             } else {
-                println!("here2");
                 console_out_rows.insert(row.to_string());
                 row = new_word_w_padding;
             }
-            // if current_line < terminal_size::t
-            // builder.append(file.filename);
-        }
+        });
         if !console_out_rows.contains(&row) {
-            println!("here3");
             console_out_rows.insert(row.to_string());
         }
         for line in console_out_rows.iter() {
             println!("{}", line);
         }
-    // println!("{}", format!("{}", builder.string().unwrap()));
     } else {
         panic!("failed to get terminal width");
     }
     return console_out_rows;
 }
 
-/// returns appropriate space padding for output to console given the length
-/// of the longest filename
+/// returns appropriate space padding for output to console
+/// by getting the longest filename and multiplying by 2
 fn get_padding_length(files: &Vec<LsFile>) -> i8 {
     let mut longest_filename = 0;
-    for file in files {
-        // let mut filename_a: String = match file.filename {
-        //     Some(filename_unwrapped) => return filename_unwrapped,
-        //     None => return String::from(""),
-        // };
-        // let mut filename_length = filename_a.chars().count();
-        let filename_unwrapped = file.filename.unwrap();
-        let filename_length = filename_unwrapped.chars().count();
+    files.into_iter().for_each(|file| {
+        let filename_length = file.filename.chars().count();
         if filename_length > longest_filename {
             longest_filename = filename_length;
         }
-    }
-    let padding_length = (longest_filename - 2) * 2;
+    });
+    let padding_length = longest_filename + 4;
     return padding_length as i8;
 }
 
@@ -204,15 +192,15 @@ fn get_rwx_from_st_mode(base_10_st_mode: u32) -> String {
 }
 
 #[derive(PartialEq, Eq, Hash, Debug)]
-struct LsFile<'a> {
-    filename: &'a Option<String>,
+struct LsFile {
+    filename: String,
     privileges: Option<String>,
     last_edit_time: Option<String>,
     size: Option<u64>,
 }
 
 impl LsFile {
-    fn new(filename: String) -> LsFile {
+    fn new(filename: String) -> Self {
         if let Ok(meta) = fs::metadata(&filename) {
             let permissions = meta.permissions();
             let mode = permissions.mode();
@@ -224,7 +212,7 @@ impl LsFile {
                         let datetime = DateTime::<Utc>::from(last_edit_time);
                         let tz_aware = Central.from_utc_datetime(&datetime.naive_utc());
                         return LsFile {
-                            filename: Some(filename_string.to_string()),
+                            filename: filename_string.to_string(),
                             privileges: Some(get_rwx_from_st_mode(mode)),
                             last_edit_time: Some(format!("{}", tz_aware.format("%d/%m/%Y %T"))),
                             size: Some(meta.len()),
@@ -249,7 +237,7 @@ impl LsFile {
                             let datetime: DateTime<Utc> = last_edit_time.into();
                             let tz_aware = Central.from_utc_datetime(&datetime.naive_utc());
                             return LsFile {
-                                filename: Some(filename_string.to_string()),
+                                filename: filename_string.to_string(),
                                 privileges: Some(get_rwx_from_st_mode(mode)),
                                 last_edit_time: Some(format!("{}", tz_aware.format("%d/%m/%Y %T"))),
                                 size: Some(meta.len()),
@@ -323,13 +311,13 @@ fn test_display_default() {
     let input: Vec<LsFile> = vec![
         LsFile {
             last_edit_time: Some(String::from("01/01/2020 00:00:00")),
-            filename: Some(String::from("Cargo.toml")),
+            filename: String::from("Cargo.toml"),
             privileges: None,
             size: None,
         },
         LsFile {
             last_edit_time: Some(String::from("01/01/2020 00:00:00")),
-            filename: Some(String::from("example.toml")),
+            filename: String::from("example.toml"),
             privileges: None,
             size: None,
         },
