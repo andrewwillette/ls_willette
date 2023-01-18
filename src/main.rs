@@ -58,24 +58,28 @@ fn run_ls() {
 /// displays the files to the console
 fn display_files(files: Vec<LsFile>, cli: Cli) {
     if cli.long {
-        for file in files {
-            println!(
-                "{}",
-                format!(
-                    "{} {} {} {}",
-                    file.privileges.unwrap(),
-                    file.filename,
-                    file.size.unwrap(),
-                    file.last_edit_time.unwrap()
-                )
-            );
-        }
+        display_long(files);
     } else {
         display_default(files);
     }
 }
 
-fn display_default(files: Vec<LsFile>) -> HashSet<String> {
+fn display_long(files: Vec<LsFile>) {
+    for file in files {
+        println!(
+            "{}",
+            format!(
+                "{} {} {} {}",
+                file.privileges.unwrap(),
+                file.filename,
+                file.size.unwrap(),
+                file.last_edit_time.unwrap()
+            )
+        );
+    }
+}
+
+fn display_default(files: Vec<LsFile>) {
     let mut console_out_rows: HashSet<String> = HashSet::new();
     let mut row = String::from("");
     let size = terminal_size();
@@ -105,7 +109,6 @@ fn display_default(files: Vec<LsFile>) -> HashSet<String> {
     } else {
         panic!("failed to get terminal width");
     }
-    return console_out_rows;
 }
 
 /// returns appropriate space padding for output to console
@@ -204,7 +207,6 @@ impl LsFile {
         if let Ok(meta) = fs::metadata(&filename) {
             let permissions = meta.permissions();
             let mode = permissions.mode();
-
             let filepath = Path::new(&filename);
             if let Some(filename) = filepath.file_name() {
                 if let Some(filename_string) = filename.to_str() {
