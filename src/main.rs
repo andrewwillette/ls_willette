@@ -8,6 +8,7 @@ use chrono::offset::Utc;
 use chrono::{DateTime, TimeZone};
 use chrono_tz::US::Central;
 use clap::Parser;
+use home::home_dir;
 use terminal_size::{terminal_size, Width};
 use tracing::Level;
 use tracing::{debug, error};
@@ -33,13 +34,23 @@ struct Cli {
     filepath: String,
 }
 
+fn get_log_dir() -> String {
+    match home_dir() {
+        Some(path) => match path.into_os_string().into_string() {
+            Ok(str_path) => {
+                let mut log_dir = str_path.to_owned();
+                log_dir.push_str("/tmp");
+                log_dir
+            }
+            Err(_) => panic!("failed to convert pathbuf for homedir"),
+        },
+        None => panic!("failed to get home dir"),
+    }
+}
+
 fn run_ls() {
     let args = Cli::parse();
-    let file_appender = RollingFileAppender::new(
-        Rotation::DAILY,
-        "/Users/andrewwillette/git/ls_willette/target/logs",
-        "ls_willette.log",
-    );
+    let file_appender = RollingFileAppender::new(Rotation::DAILY, get_log_dir(), "ls_willette.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
     tracing_subscriber::fmt()
         .with_writer(non_blocking)
